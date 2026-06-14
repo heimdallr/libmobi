@@ -25,12 +25,12 @@
  @param[in] file Filedescriptor to read from
  @return MOBI_RET status code (on success MOBI_SUCCESS)
  */
-MOBI_RET mobi_load_pdbheader(MOBIData *m, FILE *file) {
+MOBI_RET mobi_load_pdbheader(MOBIData *m, MobiReader* reader) {
     if (m == NULL) {
         debug_print("%s", "Mobi structure not initialized\n");
         return MOBI_INIT_FAILED;
     }
-    if (!file) {
+    if (!reader) {
         return MOBI_FILE_NOT_FOUND;
     }
     MOBIBuffer *buf = mobi_buffer_init(PALMDB_HEADER_LEN);
@@ -38,7 +38,7 @@ MOBI_RET mobi_load_pdbheader(MOBIData *m, FILE *file) {
         debug_print("%s\n", "Memory allocation failed");
         return MOBI_MALLOC_FAILED;
     }
-    const size_t len = fread(buf->data, 1, PALMDB_HEADER_LEN, file);
+	const size_t len = reader->read(buf->data, 1, PALMDB_HEADER_LEN, reader);
     if (len != PALMDB_HEADER_LEN) {
         mobi_buffer_free(buf);
         return MOBI_DATA_CORRUPT;
@@ -75,12 +75,12 @@ MOBI_RET mobi_load_pdbheader(MOBIData *m, FILE *file) {
  @param[in] file Filedescriptor to read from
  @return MOBI_RET status code (on success MOBI_SUCCESS)
  */
-MOBI_RET mobi_load_reclist(MOBIData *m, FILE *file) {
+MOBI_RET mobi_load_reclist(MOBIData *m, MobiReader* reader) {
     if (m == NULL) {
         debug_print("%s", "Mobi structure not initialized\n");
         return MOBI_INIT_FAILED;
     }
-    if (!file) {
+    if (!reader) {
         debug_print("%s", "File not ready\n");
         return MOBI_FILE_NOT_FOUND;
     }
@@ -96,7 +96,7 @@ MOBI_RET mobi_load_reclist(MOBIData *m, FILE *file) {
             debug_print("%s\n", "Memory allocation failed");
             return MOBI_MALLOC_FAILED;
         }
-        const size_t len = fread(buf->data, 1, PALMDB_RECORD_INFO_SIZE, file);
+		const size_t len = reader->read(buf->data, 1, PALMDB_RECORD_INFO_SIZE, reader);
         if (len != PALMDB_RECORD_INFO_SIZE) {
             mobi_buffer_free(buf);
             return MOBI_DATA_CORRUPT;
@@ -128,7 +128,7 @@ MOBI_RET mobi_load_reclist(MOBIData *m, FILE *file) {
  @param[in] file Filedescriptor to read from
  @return MOBI_RET status code (on success MOBI_SUCCESS)
  */
-MOBI_RET mobi_load_rec(MOBIData *m, FILE *file) {
+MOBI_RET mobi_load_rec(MOBIData *m, MobiReader* reader) {
     MOBI_RET ret;
     if (m == NULL) {
         debug_print("%s", "Mobi structure not initialized\n");
@@ -142,8 +142,8 @@ MOBI_RET mobi_load_rec(MOBIData *m, FILE *file) {
             next = curr->next;
             size = next->offset - curr->offset;
         } else {
-            fseek(file, 0, SEEK_END);
-            long diff = ftell(file) - curr->offset;
+			reader->seek(reader, 0, SEEK_END);
+			long diff = reader->tell(reader) - curr->offset;
             if (diff <= 0) {
                 debug_print("Wrong record size: %li\n", diff);
                 return MOBI_DATA_CORRUPT;
@@ -153,7 +153,7 @@ MOBI_RET mobi_load_rec(MOBIData *m, FILE *file) {
         }
 
         curr->size = size;
-        ret = mobi_load_recdata(curr, file);
+        ret = mobi_load_recdata(curr, reader);
         if (ret  != MOBI_SUCCESS) {
             debug_print("Error loading record uid %i data\n", curr->uid);
             mobi_free_rec(m);
@@ -171,8 +171,8 @@ MOBI_RET mobi_load_rec(MOBIData *m, FILE *file) {
  @param[in] file Filedescriptor to read from
  @return MOBI_RET status code (on success MOBI_SUCCESS)
  */
-MOBI_RET mobi_load_recdata(MOBIPdbRecord *rec, FILE *file) {
-    const int ret = fseek(file, rec->offset, SEEK_SET);
+MOBI_RET mobi_load_recdata(MOBIPdbRecord *rec, MobiReader* reader) {
+	const int ret = reader->seek(reader, rec->offset, SEEK_SET);
     if (ret != 0) {
         debug_print("Record %i not found\n", rec->uid);
         return MOBI_DATA_CORRUPT;
@@ -182,7 +182,7 @@ MOBI_RET mobi_load_recdata(MOBIPdbRecord *rec, FILE *file) {
         debug_print("%s", "Memory allocation for pdb record data failed\n");
         return MOBI_MALLOC_FAILED;
     }
-    const size_t len = fread(rec->data, 1, rec->size, file);
+	const size_t len = reader->read(rec->data, 1, rec->size, reader);
     if (len < rec->size) {
         debug_print("Truncated data in record %i\n", rec->uid);
         return MOBI_DATA_CORRUPT;
@@ -843,13 +843,13 @@ MOBI_RET mobi_parse_fdst(const MOBIData *m, MOBIRawml *rawml) {
  @param[in] file File descriptor to read from
  @return MOBI_RET status code (on success MOBI_SUCCESS)
  */
-MOBI_RET mobi_load_file(MOBIData *m, FILE *file) {
+MOBI_RET mobi_load_file(MOBIData *m, MobiReader* reader) {
     MOBI_RET ret;
     if (m == NULL) {
         debug_print("%s", "Mobi structure not initialized\n");
         return MOBI_INIT_FAILED;
     }
-    ret = mobi_load_pdbheader(m, file);
+	ret = mobi_load_pdbheader(m, reader);
     if (ret != MOBI_SUCCESS) {
         return ret;
     }
@@ -861,11 +861,11 @@ MOBI_RET mobi_load_file(MOBIData *m, FILE *file) {
         debug_print("%s", "No records found\n");
         return MOBI_DATA_CORRUPT;
     }
-    ret = mobi_load_reclist(m, file);
+	ret = mobi_load_reclist(m, reader);
     if (ret != MOBI_SUCCESS) {
         return ret;
     }
-    ret = mobi_load_rec(m, file);
+	ret = mobi_load_rec(m, reader);
     if (ret != MOBI_SUCCESS) {
         return ret;
     }
@@ -918,7 +918,87 @@ MOBI_RET mobi_load_filename(MOBIData *m, const char *path) {
         debug_print("%s", "File not found\n");
         return MOBI_FILE_NOT_FOUND;
     }
-    const MOBI_RET ret = mobi_load_file(m, file);
+    MobiReader reader = CreateFILEReader(file);
+    const MOBI_RET ret = mobi_load_file(m, &reader);
     fclose(file);
     return ret;
+}
+
+static size_t ReadFILE(void* dst, size_t size, size_t count, MobiReader* reader)
+{
+	return fread(dst, size, count, (FILE*)reader->data);
+}
+
+static int SeekFILE(MobiReader* reader, long offset, int origin)
+{
+	return fseek((FILE*)reader->data, offset, origin);
+}
+
+static long TellFILE(MobiReader* reader)
+{
+	return ftell((FILE*)reader->data);
+}
+
+static size_t ReadMemory(void* dst, size_t size, size_t count, MobiReader* reader)
+{
+	MobiMemory* memory = (MobiMemory*)reader->data;
+	size_t      left   = memory->end - memory->position;
+	if (left < size * count)
+		count = left / size;
+
+	if (count)
+	{
+		memcpy(dst, memory->position, size * count);
+		memory->position += size * count;
+	}
+
+	return count;
+}
+
+static int SeekMemory(MobiReader* reader, long offset, int origin)
+{
+	MobiMemory* memory = (MobiMemory*)reader->data;
+	char*       position;
+	switch (origin)
+	{
+		case SEEK_SET:
+			position = memory->begin + offset;
+			break;
+		case SEEK_CUR:
+			position = memory->position + offset;
+			break;
+		case SEEK_END:
+			position = memory->end + offset;
+			break;
+		default:
+			return -1;
+	}
+	if (position < memory->begin || position > memory->end)
+		return -1;
+
+	memory->position = position;
+	return 0;
+}
+
+static long TellMemory(MobiReader* reader)
+{
+	MobiMemory* memory = (MobiMemory*)reader->data;
+	return memory->position - memory->begin;
+}
+
+MobiReader CreateFILEReader(FILE* file)
+{
+	MobiReader reader = { .read = &ReadFILE, .seek = &SeekFILE, .tell = &TellFILE, .data = file };
+	return reader;
+}
+
+MobiReader CreateMemoryReader(MobiMemory* memory)
+{
+	MobiReader reader = {
+		.read = &ReadMemory,
+		.seek = &SeekMemory,
+		.tell = &TellMemory,
+		.data = memory,
+	};
+	return reader;
 }

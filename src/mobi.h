@@ -475,6 +475,24 @@ extern "C"
         MOBIPart *resources; /**< Linked list of reconstructed resources files or NULL if not present */
     } MOBIRawml;
 
+	typedef struct
+	{
+		char* begin;
+		char* end;
+		char* position;
+	} MobiMemory;
+
+    struct MOBIReader
+	{
+		size_t (*read)(void*, size_t, size_t, struct MOBIReader*);
+		int (*seek)(struct MOBIReader*, long, int);
+		long (*tell)(struct MOBIReader*);
+		void* data;
+	};
+
+    typedef struct MOBIReader MobiReader;
+
+
     /** @} */ // end of parsed_structs group
     
     /** 
@@ -482,7 +500,7 @@ extern "C"
      @{
      */
     MOBI_EXPORT const char * mobi_version(void);
-    MOBI_EXPORT MOBI_RET mobi_load_file(MOBIData *m, FILE *file);
+	MOBI_EXPORT MOBI_RET mobi_load_file(MOBIData* m, MobiReader* file);
     MOBI_EXPORT MOBI_RET mobi_load_filename(MOBIData *m, const char *path);
     
     MOBI_EXPORT MOBIData * mobi_init(void);
@@ -614,6 +632,10 @@ extern "C"
     MOBI_EXPORT MOBI_RET mobi_drm_encrypt(MOBIData *m);
 
     MOBI_EXPORT MOBI_RET mobi_write_file(FILE *file, MOBIData *m);
+
+	MOBI_EXPORT MobiReader CreateFILEReader(FILE* file);
+	MOBI_EXPORT MobiReader CreateMemoryReader(MobiMemory* memory);
+
     /** @} */ // end of mobi_export group
     
 #ifdef __cplusplus
