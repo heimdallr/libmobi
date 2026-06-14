@@ -23,7 +23,7 @@ list(GET VERSION_LIST 1 PACKAGE_VERSION_MINOR)
 option(USE_ENCRYPTION "Enable encryption" ON)
 
 # Option to enable static tools compilation
-option(TOOLS_STATIC "Enable static tools compilation" OFF)
+option(TOOLS_STATIC "Enable static tools compilation" ON)
 
 # Option to use libxml2
 option(USE_LIBXML2 "Use libxml2 instead of internal xmlwriter" ON)
@@ -40,7 +40,7 @@ option(MOBI_DEBUG "Enable debug" OFF)
 # Option to enable debug alloc
 option(MOBI_DEBUG_ALLOC "Enable debug alloc" OFF)
 
-option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 
 if(TOOLS_STATIC)
     set(BUILD_SHARED_LIBS OFF)
@@ -115,4 +115,4 @@ if(HAVE_ATTRIBUTE_NORETURN)
 endif(HAVE_ATTRIBUTE_NORETURN)
 
 add_subdirectory(src)
-add_subdirectory(tools)
+#add_subdirectory(tools)
